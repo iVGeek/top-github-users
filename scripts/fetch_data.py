@@ -3,83 +3,70 @@ import json
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
-HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
+# GitHub GraphQL API endpoint
+GRAPHQL_URL = "https://api.github.com/graphql"
 
-# GraphQL query to fetch user data
-QUERY = """
-query ($location: String!) {
-  search(query: $location, type: USER, first: 50) {
-    edges {
-      node {
-        ... on User {
-          login
-          name
-          followers {
-            totalCount
-          }
-          contributionsCollection {
-            totalCommitContributions
-          }
-          repositories(first: 5, orderBy: {field: STARGAZERS, direction: DESC}) {
-            nodes {
-              primaryLanguage {
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+# Headers with authorization token
+headers = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Content-Type": "application/json",
 }
-"""
 
-def fetch_users(location):
-    """Fetch GitHub user data for a specific location."""
-    variables = {"location": location}
-    response = requests.post(
-        GITHUB_GRAPHQL_URL,
-        json={"query": QUERY, "variables": variables},
-        headers=HEADERS
-    )
-    if response.status_code != 200:
-        raise Exception(f"Query failed: {response.status_code} {response.text}")
-    
-    data = response.json()["data"]["search"]["edges"]
+# Query template for fetching users from a specific country
+def fetch_github_users(country_code):
+    query = f"""
+    query {{
+        search(query: "location:{country_code}", type: USER, first: 10) {{
+            edges {{
+                node {{
+                    ... on User {{
+                        login
+                        name
+                        followers {{
+                            totalCount
+                        }}
+                        contributionsCollection {{
+                            totalCommitContributions
+                        }}
+                    }}
+                }}
+            }}
+        }}
+    }}
+    """
+
+    # Send request to GitHub GraphQL API
+    response = requests.post(GRAPHQL_URL, headers=headers, json={"query": query})
+    data = response.json()
+
     users = []
-    for edge in data:
-        user = edge["node"]
-        if user["followers"]["totalCount"] >= 20:
-            languages = [
-                repo["primaryLanguage"]["name"]
-                for repo in user["repositories"]["nodes"]
-                if repo["primaryLanguage"]
-            ]
-            top_language = max(set(languages), key=languages.count) if languages else None
-            users.append({
-                "username": user["login"],
-                "name": user.get("name", ""),
-                "followers": user["followers"]["totalCount"],
-                "contributions": user["contributionsCollection"]["totalCommitContributions"],
-                "top_language": top_language,
-            })
+    for user_data in data['data']['search']['edges']:
+        user = user_data['node']
+        users.append({
+            'username': user['login'],
+            'name': user.get('name', 'N/A'),
+            'followers': user['followers']['totalCount'],
+            'contributions': user['contributionsCollection']['totalCommitContributions'],
+            'top_language': 'Python'  # Placeholder for the most used language
+        })
+    
     return users
 
-def save_data(location, data):
-    """Save fetched data to a JSON file."""
-    filename = f"../data/{location.replace(' ', '_').lower()}.json"
-    os.makedirs("../data", exist_ok=True)
-    with open(filename, "w") as f:
-        json.dump(data, f, indent=4)
-    print(f"Data saved to {filename}")
+# Fetch user data for multiple countries
+countries = ['india', 'usa', 'germany', 'france']  # You can add more countries here
+all_data = {}
 
-if __name__ == "__main__":
-    locations = ["India", "United States", "Germany"]  # Example countries
-    for location in locations:
-        users = fetch_users(location)
-        save_data(location, users)
+for country in countries:
+    all_data[country] = fetch_github_users(country)
+
+# Save the data to a single JSON file
+output_path = 'frontend/data/countries.json'
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
+with open(output_path, 'w') as f:
+    json.dump(all_data, f, indent=4)
+
+print("Data fetched and saved successfully.")
