@@ -7,11 +7,30 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Top GitHub Users by Country</h1>
-    <div id="app">
-        <p>Loading data...</p>
-    </div>
+    <div class="container">
+        <h1>Top GitHub Users by Country</h1>
+        <select id="country-select" onchange="loadCountryData()">
+            <option value="india">India</option>
+            <option value="usa">USA</option>
+            <option value="germany">Germany</option>
+            <option value="france">France</option>
+            <!-- Add more countries as needed -->
+        </select>
 
+        <table>
+            <thead>
+                <tr>
+                    <th>Country</th>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Followers</th>
+                    <th>Contributions</th>
+                    <th>Top Language</th>
+                </tr>
+            </thead>
+            <tbody id="user-data"></tbody>
+        </table>
+    </div>
     <script src="script.js"></script>
 </body>
 </html>
